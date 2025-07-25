@@ -1,34 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { 
+  Routes, Route, Link, useMatch,
+  Navigate
+} from 'react-router-dom'
 import './App.css'
-import axios from 'axios'
-import Task from './components/Task'
+import TaskItem from './pages/TaskItem'
+import TaskList from './pages/TaskList'
+import TaskForm from './pages/TaskForm'
 
-function App() {
-  const [tasks, setTasks] = useState([]);
-  const [newTask, setNewTask] = useState('');
-  const [showAll, setShowAll] = useState(true);
-  
-  useEffect(() => {
-    axios
-      .get('http://localhost:3001/api/tasks')
-      .then(response => {
-        setTasks(response.data)
-      })
-  }, [])
+const App = () => {
   
 
-  return (
-    <>
-      <h1>Lista de tareas :)</h1>
-      <ul>
-        {tasks.map(task => 
-          <Task key={task.id} task={task} />
-        )}
-      </ul>
-    </>
+  return(
+    <div>
+      <div>
+        <Link to="/tasks">Lista de Tareas | </Link>
+        <Link to="/taskform">Crear/editar tareas</Link>
+      </div>
+
+      <Routes>
+        <Route path="/tasks/:id" element={<TaskItem />} />
+        <Route path="/tasks" element={<TaskList />} />
+        <Route path="/taskform" element={<TaskForm />} />
+        <Route path="/" element={<Navigate replace to="/tasks" />} />
+      </Routes>
+
+    </div>
   )
 }
-
-
 
 export default App
