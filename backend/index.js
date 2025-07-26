@@ -1,108 +1,90 @@
 const express = require('express');
 const app = express();
-const cors = require('cors')
+const cors = require('cors');
+const db = require('./db'); 
+
 app.use(express.json());
-app.use(cors())
-
-let tasks = [
-  {
-    id: 1,
-    title: "Comprar pan",
-    description: "Ir a la panadería y comprar 2 baguettes",
-    completed: false,
-    createdAt: new Date()
-  },
-  {
-    id: 2,
-    title: "Estudiar Express",
-    description: "Revisar rutas y middlewares",
-    completed: true,
-    createdAt: new Date("2023-07-24")
-  }
-];
-
-const generateId = () => {
-  const maxId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) : 0;
-  return maxId + 1;
-}
+app.use(cors());
 
 const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: 'unknown endpoint' })
-}
+  response.status(404).send({ error: 'unknown endpoint' });
+};
 
-app.get('/api/tasks', (request, response) => {
-  response.json(tasks);
-})
+app.get('/api/tasks', (req, res) => {
+  db.all('SELECT * FROM tasks', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
 
-app.get('/api/tasks/:id', (request, response) => {
-  const id= Number(request.params.id)
-  const task = tasks.find(task => task.id === id)
-
-  if(task){
-    response.json(task);
-  }else{
-    response.status(400).end();
-  }
-})
-
-
-
-app.post('/api/tasks', (request, response) => {
-  const body = request.body;
-
-  if(!body.title){
-    return response.status(400).json({
-      error: 'content missing'
-    })
-  }
-
-  const task = {
-    id: generateId(),
-    title: body.title,
-    description: body.description,
-    completed: Boolean(body.completed) || false,
-    createdAt: new Date()
-  }
-  tasks = tasks.concat(task);
-  response.json(task);
-})
-
-app.delete('/api/tasks/:id', (request, response) => {
-  const id= Number(request.params.id);
-  tasks = tasks.filter(task => task.id !=id);
-
-  response.status(204).end();
-})
-
-app.put('/api/tasks/:id', (request, response) => {
-  const id = Number(request.params.id);
-  const body = request.body;
-
-  if (!body.title) {
-    return response.status(400).json({ error: 'title missing' });
-  }
-
-  const index = tasks.findIndex(task => task.id === id);
-
-  if (index === -1) {
-    return response.status(404).json({ error: 'task not found' });
-  }
-
-  const updatedTask = {
-    ...tasks[index],
-    title: body.title,
-    description: body.description || tasks[index].description,
-    completed: typeof body.completed === 'boolean' ? body.completed : tasks[index].completed
-  };
-
-  tasks[index] = updatedTask;
-
-  response.json(updatedTask);
+    const tasks = rows.map(t => ({
+      ...t,
+      completed: Boolean(t.completed)
+    }));
+    res.json(tasks);
+  });
 });
 
-app.use(unknownEndpoint)
+app.get('/api/tasks/:id', (req, res) => {
+  const id = Number(req.params.id);
+  db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, task) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!task) return res.status(404).json({ error: 'task not found' });
+    task.completed = Boolean(task.completed);
+    res.json(task);
+  });
+});
 
-const PORT = process.env.PORT || 3001
+app.post('/api/tasks', (req, res) => {
+  const { title, description, completed, createdAt } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'title missing' });
+  }
+  db.run(
+    'INSERT INTO tasks (title, description, completed, createdAt) VALUES (?, ?, ?, ?)',
+    [title, description || '', completed ? 1 : 0, createdAt || new Date().toISOString()],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        id: this.lastID,
+        title,
+        description: description || '',
+        completed: !!completed,
+        createdAt: createdAt || new Date().toISOString()
+      });
+    }
+  );
+});
+
+app.delete('/api/tasks/:id', (req, res) => {
+  const id = Number(req.params.id);
+  db.run('DELETE FROM tasks WHERE id = ?', [id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(204).end();
+  });
+});
+
+app.put('/api/tasks/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const { title, description, completed } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: 'title missing' });
+  }
+  db.run(
+    'UPDATE tasks SET title = ?, description = ?, completed = ? WHERE id = ?',
+    [title, description || '', completed ? 1 : 0, id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, task) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!task) return res.status(404).json({ error: 'task not found' });
+        task.completed = Boolean(task.completed);
+        res.json(task);
+      });
+    }
+  );
+});
+
+app.use(unknownEndpoint);
+
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+  console.log(`Server running on port ${PORT}`);
+});
