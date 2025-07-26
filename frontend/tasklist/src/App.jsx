@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { 
-  Routes, Route, Link, useMatch,
+  Routes, Route, Link,
   Navigate
 } from 'react-router-dom'
 import './App.css'
@@ -13,15 +12,11 @@ const App = () => {
 
   return(
     <div>
-      <div>
-        <Link to="/tasks">Lista de Tareas | </Link>
-        <Link to="/taskform">Crear/editar tareas</Link>
-      </div>
-
       <Routes>
         <Route path="/tasks/:id" element={<TaskItem />} />
         <Route path="/tasks" element={<TaskList />} />
         <Route path="/taskform" element={<TaskForm />} />
+        <Route path="/taskform/:id" element={<TaskForm />} />
         <Route path="/" element={<Navigate replace to="/tasks" />} />
       </Routes>
 
